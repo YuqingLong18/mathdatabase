@@ -26,3 +26,6 @@ Thumbs.db
 # Data (if you don't want to commit large files)
 data/
 
+# Credentials (sensitive information)
+credentials.json
+

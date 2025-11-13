@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMC Problem Shop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fafafa;
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(138, 43, 226, 0.05);
+        }
+        
+        .header h1 {
+            color: #8a2be2;
+            font-weight: 300;
+            font-size: 24px;
+        }
+        
+        .header button {
+            background: #8a2be2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .header button:hover {
+            background: #7a1bd2;
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 70px);
+        }
+        
+        .left-panel {
+            width: 50%;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .filters {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        
+        .filter-group {
+            margin-bottom: 15px;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            transition: border-color 0.3s;
+        }
+        
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+        
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .problem-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .problem-item {
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        
+        .problem-item:hover {
+            border-color: #8a2be2;
+            background: #faf5ff;
+        }
+        
+        .problem-item.active {
+            border-color: #8a2be2;
+            background: #f3e5f5;
+        }
+        
+        .problem-item .title {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .problem-item .meta {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .right-panel {
+            width: 50%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .problem-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+        
+        .problem-view.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .problem-header {
+            margin-bottom: 20px;
+        }
+        
+        .problem-header h2 {
+            color: #8a2be2;
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+        
+        .problem-header .categories {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .problem-image,
+        .solution-image {
+            max-width: 100%;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .solution-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .solution-section h3 {
+            color: #8a2be2;
+            font-weight: 400;
+            margin-bottom: 15px;
+        }
+        
+        .actions {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: #fafafa;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #8a2be2;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #7a1bd2;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #8a2be2;
+            border: 2px solid #8a2be2;
+        }
+        
+        .btn-secondary:hover {
+            background: #faf5ff;
+        }
+        
+        .btn-danger {
+            background: #d32f2f;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #b71c1c;
+        }
+        
+        .worksheet-info {
+            padding: 15px 20px;
+            background: #f3e5f5;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .worksheet-info .count {
+            font-weight: 500;
+            color: #8a2be2;
+        }
+        
+        .worksheet-info input {
+            padding: 6px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 200px;
+        }
+        
+        .worksheet-info input:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c0c0c0;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a0a0a0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AMC Problem Shop</h1>
+        <button onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="container">
+        <div class="left-panel">
+            <div class="filters">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>Level</label>
+                        <select id="levelFilter">
+                            <option value="">All Levels</option>
+                            <option value="AMC8">AMC8</option>
+                            <option value="AMC10">AMC10</option>
+                            <option value="AMC12">AMC12</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Year</label>
+                        <select id="yearFilter">
+                            <option value="">All Years</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>Problem Number</label>
+                        <select id="problemRangeFilter">
+                            <option value="">All Problems</option>
+                            <option value="1-10">1-10</option>
+                            <option value="11-15">11-15</option>
+                            <option value="16-20">16-20</option>
+                            <option value="21-25">21-25</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Primary Category</label>
+                        <select id="primaryCategoryFilter">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Secondary Category</label>
+                    <select id="secondaryCategoryFilter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="worksheet-info">
+                <div>
+                    <span class="count" id="worksheetCount">0</span> problems in worksheet
+                </div>
+                <input type="text" id="sheetName" placeholder="Worksheet name" value="Worksheet">
+            </div>
+            
+            <div class="problem-list" id="problemList">
+                <div class="loading">Loading problems...</div>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="problem-view empty" id="problemView">
+                Select a problem to view details
+            </div>
+            <div class="actions" id="actions" style="display: none;">
+                <button class="btn-primary" onclick="addToSheet()">Add to Sheet</button>
+                <button class="btn-danger" onclick="removeFromSheet()">Remove from Sheet</button>
+                <button class="btn-secondary" onclick="previewSheet()">Preview Sheet</button>
+                <button class="btn-secondary" onclick="exportSheet('problems')">Export Problems PDF</button>
+                <button class="btn-secondary" onclick="exportSheet('solutions')">Export Solutions PDF</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let allProblems = [];
+        let currentProblem = null;
+        let worksheet = new Set();
+        let filterOptions = {};
+        
+        // Load filter options
+        async function loadFilterOptions() {
+            try {
+                const response = await fetch('/api/filters');
+                const data = await response.json();
+                filterOptions = data;
+                
+                // Populate year filter
+                const yearFilter = document.getElementById('yearFilter');
+                data.years.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearFilter.appendChild(option);
+                });
+                
+                // Populate primary category filter
+                const primaryFilter = document.getElementById('primaryCategoryFilter');
+                data.primary_categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    primaryFilter.appendChild(option);
+                });
+                
+                // Populate secondary category filter
+                const secondaryFilter = document.getElementById('secondaryCategoryFilter');
+                data.secondary_categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    secondaryFilter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading filter options:', error);
+            }
+        }
+        
+        // Load problems
+        async function loadProblems() {
+            const level = document.getElementById('levelFilter').value;
+            const year = document.getElementById('yearFilter').value;
+            const problemRange = document.getElementById('problemRangeFilter').value;
+            const primaryCategory = document.getElementById('primaryCategoryFilter').value;
+            const secondaryCategory = document.getElementById('secondaryCategoryFilter').value;
+            
+            const params = new URLSearchParams();
+            if (level) params.append('level', level);
+            if (year) params.append('year', year);
+            if (problemRange) params.append('problem_range', problemRange);
+            if (primaryCategory) params.append('primary_category', primaryCategory);
+            if (secondaryCategory) params.append('secondary_category', secondaryCategory);
+            
+            try {
+                const response = await fetch(`/api/problems?${params}`);
+                const data = await response.json();
+                allProblems = data.problems;
+                renderProblemList();
+            } catch (error) {
+                console.error('Error loading problems:', error);
+                document.getElementById('problemList').innerHTML = '<div class="loading">Error loading problems</div>';
+            }
+        }
+        
+        // Render problem list
+        function renderProblemList() {
+            const list = document.getElementById('problemList');
+            if (allProblems.length === 0) {
+                list.innerHTML = '<div class="loading">No problems found</div>';
+                return;
+            }
+            
+            list.innerHTML = allProblems.map(problem => {
+                const isActive = currentProblem && currentProblem.key === problem.key;
+                const inWorksheet = worksheet.has(problem.key);
+                const escapedKey = problem.key.replace(/'/g, "\\'");
+                return `
+                    <div class="problem-item ${isActive ? 'active' : ''}" onclick="selectProblem('${escapedKey}')">
+                        <div class="title">${problem.display_name}</div>
+                        <div class="meta">
+                            ${problem.primary_category}${problem.secondary_category ? ' / ' + problem.secondary_category : ''}
+                            ${inWorksheet ? ' ✓' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Select problem
+        async function selectProblem(problemKey) {
+            try {
+                const response = await fetch(`/api/problem/${encodeURIComponent(problemKey)}`);
+                const data = await response.json();
+                currentProblem = data.problem;
+                displayProblem(data);
+                
+                // Update active state - re-render list to ensure correct highlighting
+                renderProblemList();
+            } catch (error) {
+                console.error('Error loading problem:', error);
+            }
+        }
+        
+        // Display problem
+        function displayProblem(data) {
+            const view = document.getElementById('problemView');
+            const actions = document.getElementById('actions');
+            
+            const inWorksheet = worksheet.has(data.problem.key);
+            
+            view.innerHTML = `
+                <div class="problem-header">
+                    <h2>${data.problem.display_name}</h2>
+                    <div class="categories">
+                        Primary: ${data.problem.primary_category || 'N/A'}
+                        ${data.problem.secondary_category ? ' | Secondary: ' + data.problem.secondary_category : ''}
+                    </div>
+                </div>
+                <img src="${data.problem_image}" alt="Problem" class="problem-image">
+                ${data.solution_images.length > 0 ? `
+                    <div class="solution-section">
+                        <h3>Solutions</h3>
+                        ${data.solution_images.map(img => `<img src="${img}" alt="Solution" class="solution-image">`).join('')}
+                    </div>
+                ` : ''}
+            `;
+            
+            view.classList.remove('empty');
+            actions.style.display = 'flex';
+            
+            // Update button states
+            const addBtn = actions.querySelector('.btn-primary');
+            const removeBtn = actions.querySelector('.btn-danger');
+            if (inWorksheet) {
+                addBtn.style.display = 'none';
+                removeBtn.style.display = 'block';
+            } else {
+                addBtn.style.display = 'block';
+                removeBtn.style.display = 'none';
+            }
+        }
+        
+        // Add to worksheet
+        function addToSheet() {
+            if (currentProblem) {
+                worksheet.add(currentProblem.key);
+                updateWorksheetCount();
+                renderProblemList();
+                displayProblem({
+                    problem: currentProblem,
+                    problem_image: document.querySelector('.problem-image')?.src || '',
+                    solution_images: Array.from(document.querySelectorAll('.solution-image')).map(img => img.src)
+                });
+            }
+        }
+        
+        // Remove from worksheet
+        function removeFromSheet() {
+            if (currentProblem) {
+                worksheet.delete(currentProblem.key);
+                updateWorksheetCount();
+                renderProblemList();
+                displayProblem({
+                    problem: currentProblem,
+                    problem_image: document.querySelector('.problem-image')?.src || '',
+                    solution_images: Array.from(document.querySelectorAll('.solution-image')).map(img => img.src)
+                });
+            }
+        }
+        
+        // Update worksheet count
+        function updateWorksheetCount() {
+            document.getElementById('worksheetCount').textContent = worksheet.size;
+        }
+        
+        // Preview sheet
+        async function previewSheet() {
+            if (worksheet.size === 0) {
+                alert('Please add problems to the worksheet first');
+                return;
+            }
+            
+            const sheetName = document.getElementById('sheetName').value || 'Worksheet';
+            const problemKeys = Array.from(worksheet);
+            
+            // Build URL with query parameters
+            const params = new URLSearchParams();
+            params.append('problem_keys', JSON.stringify(problemKeys));
+            params.append('sheet_name', sheetName);
+            
+            // Open preview in new window
+            window.open(`/api/worksheet/preview?${params.toString()}`, '_blank');
+        }
+        
+        // Export sheet
+        async function exportSheet(type) {
+            if (worksheet.size === 0) {
+                alert('Please add problems to the worksheet first');
+                return;
+            }
+            
+            const sheetName = document.getElementById('sheetName').value || 'Worksheet';
+            const problemKeys = Array.from(worksheet);
+            
+            try {
+                const response = await fetch('/api/worksheet/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        problem_keys: problemKeys,
+                        sheet_name: sheetName,
+                        type: type
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${sheetName}_${type}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    alert('Error exporting worksheet');
+                }
+            } catch (error) {
+                console.error('Error exporting:', error);
+                alert('Error exporting worksheet');
+            }
+        }
+        
+        // Logout
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Error logging out:', error);
+            }
+        }
+        
+        // Setup event listeners
+        document.getElementById('levelFilter').addEventListener('change', loadProblems);
+        document.getElementById('yearFilter').addEventListener('change', loadProblems);
+        document.getElementById('problemRangeFilter').addEventListener('change', loadProblems);
+        document.getElementById('primaryCategoryFilter').addEventListener('change', loadProblems);
+        document.getElementById('secondaryCategoryFilter').addEventListener('change', loadProblems);
+        
+        // Initialize
+        loadFilterOptions().then(() => loadProblems());
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ sheet_name }} - Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: white;
+            padding: 40px;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #8a2be2;
+            font-weight: 300;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .problem {
+            margin-bottom: 50px;
+            page-break-inside: avoid;
+        }
+        
+        .problem-header {
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #8a2be2;
+        }
+        
+        .problem-image {
+            max-width: 100%;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        
+        @media print {
+            body {
+                padding: 20px;
+            }
+            
+            .problem {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ sheet_name }}</h1>
+    </div>
+    
+    {% for problem in problems %}
+    <div class="problem">
+        <div class="problem-header">{{ problem.display_name }}</div>
+        <img src="{{ problem.problem_image }}" alt="{{ problem.display_name }}" class="problem-image">
+    </div>
+    {% endfor %}
+    
+    <script>
+        window.onload = function() {
+            // Auto-print dialog on load
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        };
+    </script>
+</body>
+</html>
+
