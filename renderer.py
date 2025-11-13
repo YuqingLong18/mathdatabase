@@ -6,6 +6,7 @@ Supports multiple years with year-based directory structure.
 """
 
 import json
+import re
 from pathlib import Path
 from html import escape
 
@@ -56,10 +57,87 @@ class HTMLRenderer:
             self.year_dir = None
             self.output_dir = None
     
+    def process_latex_in_text(self, text):
+        """Process text content to detect and wrap LaTeX math for MathJax rendering.
+        
+        Returns a tuple: (processed_text, math_blocks) where math_blocks is a dict
+        mapping placeholders to actual LaTeX code.
+        """
+        if not text:
+            return text, {}
+        
+        math_blocks = {}
+        placeholder_counter = [0]  # Use list to allow modification in nested function
+        
+        # List of LaTeX environments that should be displayed as block math
+        latex_environments = [
+            r'\\begin\{align\*?\}.*?\\end\{align\*?\}',
+            r'\\begin\{equation\*?\}.*?\\end\{equation\*?\}',
+            r'\\begin\{eqnarray\*?\}.*?\\end\{eqnarray\*?\}',
+            r'\\begin\{gather\*?\}.*?\\end\{gather\*?\}',
+            r'\\begin\{multline\*?\}.*?\\end\{multline\*?\}',
+            r'\\begin\{split\}.*?\\end\{split\}',
+        ]
+        
+        result = text
+        
+        # Process block math environments
+        for pattern in latex_environments:
+            def replace_latex(match):
+                latex_code = match.group(0)
+                placeholder = f'__MATH_BLOCK_{placeholder_counter[0]}__'
+                placeholder_counter[0] += 1
+                math_blocks[placeholder] = ('display', latex_code)
+                return placeholder
+            
+            result = re.sub(pattern, replace_latex, result, flags=re.DOTALL)
+        
+        # Process inline math: $...$ patterns
+        def replace_inline_math(match):
+            math_content = match.group(1)
+            placeholder = f'__MATH_INLINE_{placeholder_counter[0]}__'
+            placeholder_counter[0] += 1
+            math_blocks[placeholder] = ('inline', math_content)
+            return placeholder
+        
+        # Match $...$ but not $$...$$ (which should be block math)
+        result = re.sub(r'(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)', replace_inline_math, result)
+        
+        return result, math_blocks
+    
     def render_content_item(self, item):
         """Render a single content item (text, image, or HTML)."""
         if item['type'] == 'text':
-            return escape(item['content'])
+            content = item['content']
+            # Process LaTeX first to identify math blocks
+            processed_content, math_blocks = self.process_latex_in_text(content)
+            
+            # Escape HTML
+            escaped_content = escape(processed_content)
+            
+            # Replace placeholders with actual MathJax delimiters
+            result = escaped_content
+            for placeholder, (math_type, latex_code) in math_blocks.items():
+                # Find the escaped placeholder in the result
+                escaped_placeholder = escape(placeholder)
+                if math_type == 'display':
+                    # Wrap in div and MathJax display delimiters
+                    # For LaTeX, we need to preserve & for alignment, but escape < and >
+                    # We'll use a script tag approach or escape minimally
+                    # Actually, since it's inside \[...\], HTML parser won't try to parse &
+                    # But to be safe, let's escape < and > only, and use &amp; for &
+                    # MathJax 3 should handle &amp; correctly, but let's test with raw &
+                    # For now, escape < and > but keep & as-is (inside \[...\] it should be safe)
+                    safe_latex = latex_code.replace('<', '&lt;').replace('>', '&gt;')
+                    # Actually, let's escape & too to be safe - MathJax should decode it
+                    safe_latex = safe_latex.replace('&', '&amp;')
+                    replacement = f'<div class="math-display">\\[{safe_latex}\\]</div>'
+                else:  # inline
+                    safe_latex = latex_code.replace('<', '&lt;').replace('>', '&gt;').replace('&', '&amp;')
+                    replacement = f'\\({safe_latex}\\)'
+                result = result.replace(escaped_placeholder, replacement)
+            
+            return result
         elif item['type'] == 'image':
             # Fix path: HTML files are in html/ subdirectory, images are in images/ subdirectory
             # So we need to go up one level: ../images/filename
@@ -152,6 +230,19 @@ class HTMLRenderer:
             margin: 0 2px;
             vertical-align: middle;
         }
+        /* MathJax display math styling */
+        .math-display {
+            margin: 20px 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+        .math-display .MathJax {
+            display: inline-block;
+        }
+        /* Inline math styling */
+        .MathJax {
+            font-size: 1em;
+        }
         .answer-choices {
             margin: 20px 0;
             padding: 15px;
@@ -210,6 +301,23 @@ class HTMLRenderer:
     <style>
 {self.get_common_styles()}
     </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {{
+            tex: {{
+                inlineMath: [['\\\\(', '\\\\)']],
+                displayMath: [['\\\\[', '\\\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            }},
+            options: {{
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }}
+        }};
+    </script>
 </head>
 <body>
     <h1>{year} {contest_name} - Problem {problem_num}</h1>
@@ -237,6 +345,23 @@ class HTMLRenderer:
     <style>
 {self.get_common_styles()}
     </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {{
+            tex: {{
+                inlineMath: [['\\\\(', '\\\\)']],
+                displayMath: [['\\\\[', '\\\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            }},
+            options: {{
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }}
+        }};
+    </script>
 </head>
 <body>
     <h1>{year} {contest_name} - Problem {problem_num} Solutions</h1>

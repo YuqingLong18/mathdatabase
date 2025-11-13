@@ -24,6 +24,5 @@ ENV/
 Thumbs.db
 
 # Data (if you don't want to commit large files)
-# Uncomment if needed:
-# data/
+data/
 

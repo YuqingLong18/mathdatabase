@@ -61,13 +61,13 @@ Please tag this question with its most appropriate category, and an optional sec
 class OpenRouterClient:
     """Client for OpenRouter API."""
     
-    def __init__(self, api_key: str, model: str = "google/gemini-2.5-pro", base_url: str = "https://openrouter.ai/api/v1", timeout: int = 180):
+    def __init__(self, api_key: str, model: str = "google/gemini-2.5-flash", base_url: str = "https://openrouter.ai/api/v1", timeout: int = 180):
         """
         Initialize OpenRouter client.
         
         Args:
             api_key: OpenRouter API key
-            model: Model identifier (default: "google/gemini-2.5-pro" which supports vision)
+            model: Model identifier (default: "google/gemini-2.5-flash" which supports vision)
             base_url: OpenRouter API base URL
             timeout: Request timeout in seconds (default: 180 for 3 minutes)
         """
@@ -195,7 +195,7 @@ class OpenRouterClient:
 class ProblemLabeler:
     """Label AMC problems with categories."""
     
-    def __init__(self, data_dir: Path, api_key: str, model: str = "google/gemini-2.5-pro", timeout: int = 180):
+    def __init__(self, data_dir: Path, api_key: str, model: str = "google/gemini-2.5-flash", timeout: int = 180):
         """
         Initialize problem labeler.
         
@@ -217,17 +217,32 @@ class ProblemLabeler:
         if self.labels_file.exists():
             try:
                 with open(self.labels_file, 'r') as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                print(f"Warning: Could not parse {self.labels_file}, starting fresh.")
+                    labels = json.load(f)
+                    print(f"Loaded {len(labels)} existing labels from {self.labels_file}")
+                    return labels
+            except json.JSONDecodeError as e:
+                print(f"Warning: Could not parse {self.labels_file}: {e}")
+                print("Starting fresh. If the file was corrupted, you may need to restore it.")
                 return {}
+        else:
+            print(f"No existing labels file found at {self.labels_file}, starting fresh.")
         return {}
     
     def save_labels(self):
-        """Save labels to JSON file."""
+        """Save labels to JSON file atomically to prevent corruption."""
         self.labels_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.labels_file, 'w') as f:
-            json.dump(self.labels, f, indent=2)
+        # Write to a temporary file first, then rename atomically
+        temp_file = self.labels_file.with_suffix('.json.tmp')
+        try:
+            with open(temp_file, 'w') as f:
+                json.dump(self.labels, f, indent=2)
+            # Atomic rename - this prevents corruption if interrupted
+            temp_file.replace(self.labels_file)
+        except Exception as e:
+            # If something goes wrong, try to clean up temp file
+            if temp_file.exists():
+                temp_file.unlink()
+            raise e
     
     def get_problem_key(self, test_type: str, year: str, problem_num: str) -> str:
         """Generate a unique key for a problem."""
@@ -351,8 +366,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="google/gemini-2.5-pro",
-        help="OpenRouter model identifier (default: google/gemini-2.5-pro)"
+        default="google/gemini-2.5-flash",
+        help="OpenRouter model identifier (default: google/gemini-2.5-flash)"
     )
     parser.add_argument(
         "--test-type",
@@ -401,7 +416,7 @@ def main():
         return 1
     
     # Get model (from .env, environment variable, command line, or default)
-    model = args.model or os.getenv("OPENROUTER_MODEL") or "google/gemini-2.5-pro"
+    model = args.model or os.getenv("OPENROUTER_MODEL") or "google/gemini-2.5-flash"
     
     # Get timeout (from .env, environment variable, command line, or default)
     timeout = args.timeout
