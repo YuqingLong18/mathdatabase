@@ -119,6 +119,10 @@
             cursor: pointer;
             transition: all 0.2s;
             background: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
         }
         
         .problem-item:hover {
@@ -131,6 +135,10 @@
             background: #f3e5f5;
         }
         
+        .problem-item .content {
+            flex: 1;
+        }
+        
         .problem-item .title {
             font-weight: 500;
             color: #333;
@@ -140,6 +148,39 @@
         .problem-item .meta {
             font-size: 12px;
             color: #666;
+        }
+        
+        .problem-item .worksheet-toggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #8a2be2;
+            background: white;
+            color: #8a2be2;
+            font-size: 18px;
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+        
+        .problem-item .worksheet-toggle:hover {
+            background: #8a2be2;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .problem-item .worksheet-toggle.in-worksheet {
+            background: #8a2be2;
+            color: white;
+        }
+        
+        .problem-item .worksheet-toggle.in-worksheet:hover {
+            background: #7a1bd2;
         }
         
         .right-panel {
@@ -367,8 +408,8 @@
                 Select a problem to view details
             </div>
             <div class="actions" id="actions" style="display: none;">
-                <button class="btn-primary" onclick="addToSheet()">Add to Sheet</button>
-                <button class="btn-danger" onclick="removeFromSheet()">Remove from Sheet</button>
+                <button class="btn-primary" onclick="addToSheet()" style="display: none;">Add to Sheet</button>
+                <button class="btn-danger" onclick="removeFromSheet()" style="display: none;">Remove from Sheet</button>
                 <button class="btn-secondary" onclick="previewSheet()">Preview Sheet</button>
                 <button class="btn-secondary" onclick="exportSheet('problems')">Export Problems PDF</button>
                 <button class="btn-secondary" onclick="exportSheet('solutions')">Export Solutions PDF</button>
@@ -454,16 +495,30 @@
                 return;
             }
             
-            list.innerHTML = allProblems.map(problem => {
+            // Sort problems: worksheet items first, then others
+            const sortedProblems = [...allProblems].sort((a, b) => {
+                const aInWorksheet = worksheet.has(a.key);
+                const bInWorksheet = worksheet.has(b.key);
+                if (aInWorksheet && !bInWorksheet) return -1;
+                if (!aInWorksheet && bInWorksheet) return 1;
+                return 0;
+            });
+            
+            list.innerHTML = sortedProblems.map(problem => {
                 const isActive = currentProblem && currentProblem.key === problem.key;
                 const inWorksheet = worksheet.has(problem.key);
-                const escapedKey = problem.key.replace(/'/g, "\\'");
+                const escapedKey = problem.key.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 return `
                     <div class="problem-item ${isActive ? 'active' : ''}" onclick="selectProblem('${escapedKey}')">
-                        <div class="title">${problem.display_name}</div>
-                        <div class="meta">
-                            ${problem.primary_category}${problem.secondary_category ? ' / ' + problem.secondary_category : ''}
-                            ${inWorksheet ? ' ✓' : ''}
+                        <div class="content">
+                            <div class="title">${problem.display_name}</div>
+                            <div class="meta">
+                                ${problem.primary_category}${problem.secondary_category ? ' / ' + problem.secondary_category : ''}
+                            </div>
+                        </div>
+                        <div class="worksheet-toggle ${inWorksheet ? 'in-worksheet' : ''}" 
+                             onclick="event.stopPropagation(); toggleWorksheet('${escapedKey}')">
+                            ${inWorksheet ? '−' : '+'}
                         </div>
                     </div>
                 `;
@@ -512,43 +567,49 @@
             view.classList.remove('empty');
             actions.style.display = 'flex';
             
-            // Update button states
+            // Update button states (keep buttons for backward compatibility, but they're less prominent)
             const addBtn = actions.querySelector('.btn-primary');
             const removeBtn = actions.querySelector('.btn-danger');
             if (inWorksheet) {
-                addBtn.style.display = 'none';
-                removeBtn.style.display = 'block';
+                if (addBtn) addBtn.style.display = 'none';
+                if (removeBtn) removeBtn.style.display = 'block';
             } else {
-                addBtn.style.display = 'block';
-                removeBtn.style.display = 'none';
+                if (addBtn) addBtn.style.display = 'none';
+                if (removeBtn) removeBtn.style.display = 'none';
             }
         }
         
-        // Add to worksheet
+        // Toggle worksheet (add/remove)
+        function toggleWorksheet(problemKey) {
+            if (worksheet.has(problemKey)) {
+                worksheet.delete(problemKey);
+            } else {
+                worksheet.add(problemKey);
+            }
+            updateWorksheetCount();
+            renderProblemList();
+            
+            // Update display if this is the currently selected problem
+            if (currentProblem && currentProblem.key === problemKey) {
+                displayProblem({
+                    problem: currentProblem,
+                    problem_image: document.querySelector('.problem-image')?.src || '',
+                    solution_images: Array.from(document.querySelectorAll('.solution-image')).map(img => img.src)
+                });
+            }
+        }
+        
+        // Add to worksheet (kept for backward compatibility with action buttons)
         function addToSheet() {
             if (currentProblem) {
-                worksheet.add(currentProblem.key);
-                updateWorksheetCount();
-                renderProblemList();
-                displayProblem({
-                    problem: currentProblem,
-                    problem_image: document.querySelector('.problem-image')?.src || '',
-                    solution_images: Array.from(document.querySelectorAll('.solution-image')).map(img => img.src)
-                });
+                toggleWorksheet(currentProblem.key);
             }
         }
         
-        // Remove from worksheet
+        // Remove from worksheet (kept for backward compatibility with action buttons)
         function removeFromSheet() {
             if (currentProblem) {
-                worksheet.delete(currentProblem.key);
-                updateWorksheetCount();
-                renderProblemList();
-                displayProblem({
-                    problem: currentProblem,
-                    problem_image: document.querySelector('.problem-image')?.src || '',
-                    solution_images: Array.from(document.querySelectorAll('.solution-image')).map(img => img.src)
-                });
+                toggleWorksheet(currentProblem.key);
             }
         }
         
