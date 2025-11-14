@@ -145,7 +145,8 @@ def get_problems():
     
     # Get filter parameters
     level = request.args.get('level', '').strip()
-    year = request.args.get('year', '').strip()
+    year_from = request.args.get('year_from', '').strip()
+    year_to = request.args.get('year_to', '').strip()
     problem_range = request.args.get('problem_range', '').strip()
     primary_category = request.args.get('primary_category', '').strip()
     secondary_category = request.args.get('secondary_category', '').strip()
@@ -168,8 +169,26 @@ def get_problems():
             if problem_level != level:
                 continue
         
-        if year and problem_year != year:
-            continue
+        # Year range filter (both inclusive)
+        if year_from or year_to:
+            try:
+                problem_year_int = int(problem_year)
+                year_from_int = int(year_from) if year_from else None
+                year_to_int = int(year_to) if year_to else None
+                
+                # If only one bound is provided, use it for both
+                if year_from_int is not None and year_to_int is None:
+                    year_to_int = year_from_int
+                elif year_to_int is not None and year_from_int is None:
+                    year_from_int = year_to_int
+                
+                # Check if problem year is in range (inclusive)
+                if year_from_int is not None and year_to_int is not None:
+                    if not (year_from_int <= problem_year_int <= year_to_int):
+                        continue
+            except (ValueError, TypeError):
+                # If year parsing fails, skip this filter
+                pass
         
         if problem_range:
             problem_num_range = get_problem_number_range(problem_num)
@@ -194,8 +213,37 @@ def get_problems():
             'display_name': f"{problem_year} {test_type} - Problem {problem_num}"
         })
     
-    # Sort by year (descending), then test type, then problem number
-    filtered_problems.sort(key=lambda x: (x['year'], x['test_type'], int(x['problem_number'])), reverse=True)
+    # Sort according to ordering rules:
+    # 1. Level: AMC8, AMC10, AMC12
+    # 2. Problem number: 1-25 (ascending)
+    # 3. Year: ascending (smaller first)
+    # 4. Test type variant: A before B
+    def get_sort_key(problem):
+        test_type = problem['test_type']
+        year = int(problem['year'])
+        problem_num = int(problem['problem_number'])
+        
+        # Level priority: AMC8=1, AMC10=2, AMC12=3
+        if test_type.startswith('AMC8'):
+            level_priority = 1
+        elif test_type.startswith('AMC10'):
+            level_priority = 2
+        elif test_type.startswith('AMC12'):
+            level_priority = 3
+        else:
+            level_priority = 999
+        
+        # Test type variant: A=0, B=1 (A comes before B)
+        if test_type.endswith('A'):
+            variant_priority = 0
+        elif test_type.endswith('B'):
+            variant_priority = 1
+        else:
+            variant_priority = 1
+        
+        return (level_priority, problem_num, year, variant_priority)
+    
+    filtered_problems.sort(key=get_sort_key)
     
     return jsonify({'problems': filtered_problems})
 
