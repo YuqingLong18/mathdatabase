@@ -154,3 +154,4 @@ Given: 10 users, school internal use, teaching aid (doesn't need to be overly ro
 - **Maintainability**: Choose simple solutions over complex ones
 - **No need for**: User roles, advanced permissions, analytics dashboards, etc.
 
+
