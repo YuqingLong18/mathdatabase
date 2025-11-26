@@ -1,26 +1,20 @@
 import os
 import json
 import glob
-from flask import Flask, render_template, request, jsonify, session, send_file, abort
+import io
 from functools import wraps
-from werkzeug.security import check_password_hash
+
+import requests
+from flask import Flask, render_template, request, jsonify, session, send_file, abort
+from PIL import Image as PILImage
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Image, PageBreak, Spacer
-from PIL import Image as PILImage
-import io
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['DATA_DIR'] = os.path.join(os.path.dirname(__file__), 'data')
-app.config['CREDENTIALS_FILE'] = os.path.join(os.path.dirname(__file__), 'credentials.json')
-
-# Load credentials
-def load_credentials():
-    if os.path.exists(app.config['CREDENTIALS_FILE']):
-        with open(app.config['CREDENTIALS_FILE'], 'r') as f:
-            return json.load(f)
-    return {}
+app.config['AUTH_SERVICE_URL'] = os.environ.get('AUTH_SERVICE_URL', 'http://localhost:3000/verify')
 
 def login_required(f):
     @wraps(f)
@@ -29,6 +23,31 @@ def login_required(f):
             return jsonify({'error': 'Authentication required'}), 401
         return f(*args, **kwargs)
     return decorated_function
+
+def verify_with_auth_service(username, password):
+    """Delegate credential verification to centralized auth service."""
+    payload = {'username': username, 'password': password}
+    url = app.config['AUTH_SERVICE_URL']
+    
+    try:
+        response = requests.post(url, json=payload, timeout=5)
+    except requests.RequestException as exc:
+        app.logger.error("Auth service request failed: %s", exc)
+        return False, 'Authentication service unavailable', 503, None
+    
+    try:
+        data = response.json()
+    except ValueError:
+        data = {}
+    
+    if response.status_code == 200 and data.get('success'):
+        return True, None, 200, data.get('user', {})
+    
+    if response.status_code == 401:
+        return False, data.get('error', 'Invalid credentials'), 401, None
+    
+    error_message = data.get('error') or f'Authentication service error (status {response.status_code})'
+    return False, error_message, response.status_code or 500, None
 
 def get_level_from_test_type(test_type):
     """Convert test type to level (AMC10A/B -> AMC10, AMC12A/B -> AMC12)"""
@@ -107,30 +126,15 @@ def login():
     if not username or not password:
         return jsonify({'success': False, 'error': 'Username and password required'}), 400
     
-    credentials = load_credentials()
+    success, error_message, status_code, user_info = verify_with_auth_service(username, password)
     
-    # Check if username exists and password matches
-    if username in credentials:
-        stored_hash = credentials[username]
-        # Try to verify as a hashed password (works with pbkdf2, scrypt, argon2, etc.)
-        if isinstance(stored_hash, str):
-            # Check if it looks like a werkzeug hash (starts with known hash method prefixes)
-            is_hash = any(stored_hash.startswith(prefix) for prefix in 
-                         ['pbkdf2:', 'scrypt:', 'argon2:', 'bcrypt:'])
-            
-            if is_hash:
-                # It's a hashed password - verify it
-                if check_password_hash(stored_hash, password):
-                    session['logged_in'] = True
-                    session['username'] = username
-                    return jsonify({'success': True})
-            elif stored_hash == password:
-                # Plain text password (for initial setup - should be changed)
-                session['logged_in'] = True
-                session['username'] = username
-                return jsonify({'success': True})
+    if success:
+        session['logged_in'] = True
+        session['username'] = user_info.get('username', username)
+        session['user_id'] = user_info.get('id')
+        return jsonify({'success': True})
     
-    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+    return jsonify({'success': False, 'error': error_message}), status_code
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
@@ -460,4 +464,3 @@ def export_worksheet():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
