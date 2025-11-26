@@ -5,16 +5,27 @@ import io
 from functools import wraps
 
 import requests
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session, send_file, abort
 from PIL import Image as PILImage
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Image, PageBreak, Spacer
 
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not secret_key:
+    # Fallback is per-process random; provide FLASK_SECRET_KEY in production.
+    secret_key = os.urandom(24)
+
+app.secret_key = secret_key
 app.config['DATA_DIR'] = os.path.join(os.path.dirname(__file__), 'data')
 app.config['AUTH_SERVICE_URL'] = os.environ.get('AUTH_SERVICE_URL', 'http://localhost:3000/verify')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_SESSION_SECURE', 'false').lower() == 'true'
 
 def login_required(f):
     @wraps(f)
@@ -116,6 +127,10 @@ def index():
     if 'logged_in' not in session or not session['logged_in']:
         return render_template('login.html')
     return render_template('index.html')
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok', 'service': 'mathdatabase'})
 
 @app.route('/api/login', methods=['POST'])
 def login():
